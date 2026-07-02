@@ -1,0 +1,81 @@
+import logging
+import random
+from telegram import Update, ReplyKeyboardMarkup
+from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
+
+# Настройка логирования (чтобы видеть ошибки в Render)
+logging.basicConfig(
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+    level=logging.INFO
+)
+
+# Создаем кнопки (Reply Keyboard)
+keyboard = [
+    ["🎲 Кинуть D5"],
+    ["🎲 Кинуть D12"],
+    ["🎲 Кинуть 2D12"]
+]
+reply_markup = ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=False)
+
+# Команда /start
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🎲 Привет! Я бот для бросков кубиков.\n"
+        "Нажимай на кнопки внизу или пиши команду, например: 2d12\n",
+        reply_markup=reply_markup
+    )
+
+# Обработчик всех сообщений
+async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    text = update.message.text
+
+    # 1. Обработка нажатия на кнопки
+    if text == "🎲 Кинуть D5":
+        result = random.randint(1, 5)
+        await update.message.reply_text(f"🎲 **D5:** {result}", parse_mode='Markdown')
+        
+    elif text == "🎲 Кинуть D12":
+        result = random.randint(1, 12)
+        await update.message.reply_text(f"🎲 **D12:** {result}", parse_mode='Markdown')
+        
+    elif text == "🎲 Кинуть 2D12":
+        results = [random.randint(1, 12) for _ in range(2)]
+        total = sum(results)
+        await update.message.reply_text(f"🎲 **2D12:** {results}\nСумма: {total}", parse_mode='Markdown')
+
+    # 2. Обработка текстового ввода (например: "3d12" или "/roll 3d12")
+    elif "d" in text.lower():
+        try:
+            # Убираем лишние слова и символы
+            clean_text = text.lower().replace("/roll", "").strip()
+            count, sides = map(int, clean_text.split('d'))
+            
+            if count > 10:
+                await update.message.reply_text("❌ Нельзя кидать больше 10 кубиков за раз!")
+                return
+                
+            results = [random.randint(1, sides) for _ in range(count)]
+            total = sum(results)
+            await update.message.reply_text(f"🎲 Результат ({count}d{sides}): {results}\nСумма: {total}")
+            
+        except:
+            await update.message.reply_text("❌ Не понял. Напиши, например: 2d12 или нажми кнопку.")
+
+    # 3. Если прислали что-то странное
+    else:
+        await update.message.reply_text("Я понимаю только кнопки или команды с d (например, 2d6). Нажми /start чтобы посмотреть меню.")
+
+if __name__ == '__main__':
+    # 🔴 СЮДА ВСТАВЬ СВОЙ ТОКЕН ОТ @BotFather (оставь кавычки вокруг него!)
+    TOKEN = '8681984974:AAEB8qh_zXRS3aQ9roH1bFyojzvITWXzHUw'
+    
+    application = ApplicationBuilder().token(TOKEN).build()
+    
+    application.add_handler(CommandHandler('start', start))
+    # Ловим все текстовые сообщения, кроме команд /start и /roll
+    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+    # Если человек напишет "/roll 2d12", это тоже обработается
+    application.add_handler(CommandHandler('roll', handle_message))
+
+    print("Бот с кнопками запущен и готов к работе!")
+    application.run_polling()
