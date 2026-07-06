@@ -25,8 +25,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# Основной обработчик сообщений
+# ========== ГЛАВНЫЙ ОБРАБОТЧИК С ЛОГАМИ ==========
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    # ===== ВРЕМЕННЫЙ ЛОГ =====
+    if update.message:
+        logging.info(f"🔍 ПОЛУЧЕНО: {update.message.text} | из чата ID: {update.message.chat_id} | тип: {update.message.chat.type}")
+    else:
+        logging.info("🔍 Получен апдейт без сообщения")
+    # ===== КОНЕЦ ЛОГА =====
+    
     if not update.message:
         return
     
@@ -48,7 +55,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             total = sum(results)
             await context.bot.send_message(chat_id=chat_id, text=f"🎲 **2D12:** {results}\nСумма: {total}", parse_mode='Markdown')
 
-        # 2. Команды с d (например: 2d12, /roll 3d6)
+        # 2. Команды с d
         elif "d" in text.lower():
             try:
                 clean_text = text.lower().replace("/roll", "").strip()
@@ -65,20 +72,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except:
                 await context.bot.send_message(chat_id=chat_id, text="❌ Не понял. Напиши, например: 2d12 или нажми кнопку.")
 
-        # 3. Всё остальное
         else:
             await context.bot.send_message(chat_id=chat_id, text="Я понимаю только кнопки или команды с d (например, 2d6). Нажми /start чтобы посмотреть меню.")
             
     except Exception as e:
-        logging.error(f"Ошибка отправки в чат {chat_id}: {e}")
+        logging.error(f"❌ Ошибка отправки в чат {chat_id}: {e}")
         await context.bot.send_message(chat_id=chat_id, text="❌ Ошибка! Проверьте, есть ли у бота права администратора в этом чате.")
 
 # Обработчик команды /roll
 async def roll_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await handle_message(update, context)
 
+# ========== ЗАПУСК ==========
 if __name__ == '__main__':
-    # ⚠️ ВСТАВЬТЕ СВОЙ ТОКЕН (или используйте переменную окружения)
+    # ⚠️ ВСТАВЬТЕ СВОЙ ТОКЕН
     TOKEN = '8681984974:AAEB8qh_zXRS3aQ9roH1bFyojzvITWXzHUw'
     
     application = ApplicationBuilder().token(TOKEN).build()
@@ -87,5 +94,5 @@ if __name__ == '__main__':
     application.add_handler(CommandHandler('roll', roll_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    print("✅ Бот с кубиками запущен и готов к работе!")
+    print("✅ Бот запущен! Смотри логи в Render.")
     application.run_polling()
