@@ -3,13 +3,13 @@ import random
 from telegram import Update, ReplyKeyboardMarkup
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters
 
-# Настройка логирования (чтобы видеть ошибки в Render)
+# Настройка логирования
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     level=logging.INFO
 )
 
-# Создаем кнопки (Reply Keyboard)
+# Клавиатура с кнопками
 keyboard = [
     ["🎲 Кинуть D5"],
     ["🎲 Кинуть D12"],
@@ -25,55 +25,67 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# Обработчик всех сообщений
+# Основной обработчик сообщений
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+    
     text = update.message.text
+    chat_id = update.message.chat_id
 
-    # 1. Обработка нажатия на кнопки
-    if text == "🎲 Кинуть D5":
-        result = random.randint(1, 5)
-        await update.message.reply_text(f"🎲 **D5:** {result}", parse_mode='Markdown')
-        
-    elif text == "🎲 Кинуть D12":
-        result = random.randint(1, 12)
-        await update.message.reply_text(f"🎲 **D12:** {result}", parse_mode='Markdown')
-        
-    elif text == "🎲 Кинуть 2D12":
-        results = [random.randint(1, 12) for _ in range(2)]
-        total = sum(results)
-        await update.message.reply_text(f"🎲 **2D12:** {results}\nСумма: {total}", parse_mode='Markdown')
-
-    # 2. Обработка текстового ввода (например: "3d12" или "/roll 3d12")
-    elif "d" in text.lower():
-        try:
-            # Убираем лишние слова и символы
-            clean_text = text.lower().replace("/roll", "").strip()
-            count, sides = map(int, clean_text.split('d'))
+    try:
+        # 1. Кнопки
+        if text == "🎲 Кинуть D5":
+            result = random.randint(1, 5)
+            await context.bot.send_message(chat_id=chat_id, text=f"🎲 **D5:** {result}", parse_mode='Markdown')
             
-            if count > 10:
-                await update.message.reply_text("❌ Нельзя кидать больше 10 кубиков за раз!")
-                return
-                
-            results = [random.randint(1, sides) for _ in range(count)]
+        elif text == "🎲 Кинуть D12":
+            result = random.randint(1, 12)
+            await context.bot.send_message(chat_id=chat_id, text=f"🎲 **D12:** {result}", parse_mode='Markdown')
+            
+        elif text == "🎲 Кинуть 2D12":
+            results = [random.randint(1, 12) for _ in range(2)]
             total = sum(results)
-            await update.message.reply_text(f"🎲 Результат ({count}d{sides}): {results}\nСумма: {total}")
-            
-        except:
-            await update.message.reply_text("❌ Не понял. Напиши, например: 2d12 или нажми кнопку.")
+            await context.bot.send_message(chat_id=chat_id, text=f"🎲 **2D12:** {results}\nСумма: {total}", parse_mode='Markdown')
 
-    # 3. Если прислали что-то странное
-    else:
-        await update.message.reply_text("Я понимаю только кнопки или команды с d (например, 2d6). Нажми /start чтобы посмотреть меню.")
+        # 2. Команды с d (например: 2d12, /roll 3d6)
+        elif "d" in text.lower():
+            try:
+                clean_text = text.lower().replace("/roll", "").strip()
+                count, sides = map(int, clean_text.split('d'))
+                
+                if count > 10:
+                    await context.bot.send_message(chat_id=chat_id, text="❌ Нельзя кидать больше 10 кубиков за раз!")
+                    return
+                    
+                results = [random.randint(1, sides) for _ in range(count)]
+                total = sum(results)
+                await context.bot.send_message(chat_id=chat_id, text=f"🎲 Результат ({count}d{sides}): {results}\nСумма: {total}")
+                
+            except:
+                await context.bot.send_message(chat_id=chat_id, text="❌ Не понял. Напиши, например: 2d12 или нажми кнопку.")
+
+        # 3. Всё остальное
+        else:
+            await context.bot.send_message(chat_id=chat_id, text="Я понимаю только кнопки или команды с d (например, 2d6). Нажми /start чтобы посмотреть меню.")
+            
+    except Exception as e:
+        logging.error(f"Ошибка отправки в чат {chat_id}: {e}")
+        await context.bot.send_message(chat_id=chat_id, text="❌ Ошибка! Проверьте, есть ли у бота права администратора в этом чате.")
+
+# Обработчик команды /roll
+async def roll_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await handle_message(update, context)
 
 if __name__ == '__main__':
-    # 🔴 СЮДА ВСТАВЬ СВОЙ ТОКЕН ОТ @BotFather (оставь кавычки вокруг него!)
+    # ⚠️ ВСТАВЬТЕ СВОЙ ТОКЕН (или используйте переменную окружения)
     TOKEN = '8681984974:AAEB8qh_zXRS3aQ9roH1bFyojzvITWXzHUw'
     
     application = ApplicationBuilder().token(TOKEN).build()
     
     application.add_handler(CommandHandler('start', start))
+    application.add_handler(CommandHandler('roll', roll_command))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
-    application.add_handler(CommandHandler('roll', handle_message))
 
-    print("Бот с кнопками запущен и готов к работе!")
+    print("✅ Бот с кубиками запущен и готов к работе!")
     application.run_polling()
